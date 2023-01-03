@@ -16,10 +16,8 @@ library(rmapshaper)
 # Read in data
 Africa <- st_read("Africa_SCH_STH_shapefile/Countries.shp")
 Health_district<- st_read("Africa_SCH_STH_shapefile/Health_Districts.shp")
-Regions <- st_read("Africa_SCH_STH_shapefile/Regional.shp")
 STH <- read_xlsx("SoilTransmittedHelminths_dataset28052017.xlsx",
                  guess_max = min(8300, n_max= 17388))
-
 
 
 # Check if the data is read in right with correct data types
@@ -104,6 +102,7 @@ tm_shape(Africa_proj_sim) +
   tm_compass(position = c("left", "top"), size = 2) 
 
 
+
 #This map only shows the overview of the Whole African continent using mean values, it does not show accurate results of each country
 #Before moving on to focus on Nigeria, the following analysis will use the health district for performing geostatistical modelling
 st_crs(Health_district)$proj4string
@@ -156,69 +155,39 @@ NGA_STH_sub <- NGA_STH_sub%>%
   mutate(percentage = sth_positive/sth_examined)%>%
   mutate(perc_to_100 = percentage*100)
 
-
-#since the points are not where STH is detected, instead they are points where STH has been examined and diagnosed
-#try kriging on NGA
-library("gstat")
-library("geoR")
-library(sp)
-
- #inspect
-tm_shape(NGA_healthdistrict) + tm_polygons(alpha = 0, border.col = "black") + 
-  tm_shape(NGA_STH_sub) + tm_dots() + 
-  tm_scale_bar(position = c("left","bottom")) +
-  tm_compass(position = c("right", "bottom"))
-
+#inspect
 tm_shape(NGA_STH_joined) + 
   tm_polygons(col='percentage', palette='Greens') +
   tm_scale_bar(position = c("right","bottom")) +
   tm_compass(position = c("left", "top")) +
   tm_layout("STH percentage in Nigeria", title.size = 0.8, title.position = c('center','top'))
 
-#There are some wards without data, the STH percentage are unknown, therefore Kriging could be adopted to predict the STH percentage
+# The points are not where STH is detected, but locations to test the prevalence of STH
+## moran's I 
 
-NGA_STH_sub_sp <- as(NGA_STH_sub, "Spatial")
+ngasoil <- st_read("Nigeria_soils_data/Legacy_soils_and_National_surveys.shp")
+st_crs(ngasoil)$proj4string
 
-NGASTH_emp.variogram <- variogram(percentage~1, NGA_STH_sub_sp)
-NGASTH_emp.variogram
-plot(NGASTH_emp.variogram)
-#nugget - 0.024
-#range - 200005 
-#sill - 0.033
-#partial sill - 0.018 
-# Fit best model
-best_NGASTH_emp.variogram <- fit.variogram(NGASTH_emp.variogram, model = vgm(c("Exp", "Gau", "Sph")))
-best_NGASTH_emp.variogram
-plot(NGASTH_emp.variogram, best_NGASTH_emp.variogram, main  = "Gaussian model (Nug: 0.023445432, PSill:0.008277129, Range: 161882.2m)")
+ngasoil <- ngasoil %>%
+  st_set_crs(., 4326) %>%
+  st_transform(., 3857)
 
-#build blank raster template
-RasterTemplate <- raster(NGA_STH_sub_sp)
-res(RasterTemplate) <- 5000
-grid.interpolation <- as(RasterTemplate, 'SpatialGrid')
-# interpolation 
-modelKrigingGAU <- gstat(formula = percentage~1, locations = NGA_STH_sub_sp, model = best_NGASTH_emp.variogram)
-# add results of the interpolation to the raster template --> predicted STH and variation of STH
-Kriged_STH <- predict(modelKrigingGAU, grid.interpolation)
+ngasoilsub <- ngasoil[NGA_healthdistrict, ]
 
-# save both prediction and variance to a brick raster
-brickedKriged_STH_Results <- brick(Kriged_STH)
-# slice the layers out
-exp.prediction <- raster(brickedKriged_STH_Results, layer = 1)
-exp.variance <- raster(brickedKriged_STH_Results, layer = 2)
+nga_soil_joined <- st_join(NGA_healthdistrict, ngasoilsub)
 
-writeRaster(exp.prediction, "Predicted STH levels in NGA.tif", format="GTiff", overwrite = TRUE)
-writeRaster(exp.variance, "Variance STH levels in NGA.tif", format="GTiff", overwrite = TRUE)
+#inspect points with map
+tm_shape(NGA_healthdistrict) + tm_polygons(alpha = 0, border.col = "black") + 
+  tm_shape(ngasoilsub) + tm_dots(col = 'blue') + 
+  tm_scale_bar(position = c("right","bottom")) +
+  tm_compass(position = c("left", "top"))
 
-NGA_shp_sp <- as(NGA_STH_joined, "Spatial")
-exp.prediction_masked <- mask(exp.prediction, NGA_shp_sp)
+# map the pH after joining
+tm_shape(nga_soil_joined) + 
+  tm_fill(col='pH', palette='Greens') +
+  tm_scale_bar(position = c("right","bottom")) +
+  tm_compass(position = c("left", "top")) +
+  tm_layout("Soil pH in Nigeria", title.size = 0.8, title.position = c('center','top'))
 
 
-frameExtent <- st_bbox(NGA_shp_sp)
-frameExtent
 
-tm_shape(exp.prediction_masked, bbox = frameExtent) + tm_raster(title = "Predicted STH ppb", style = "cont", palette = "Reds") +
-  tm_shape(NGA_shp_sp) + tm_polygons(alpha = 0, border.col = "black") +
-  tm_scale_bar(position = c("left","bottom")) 
-  tm_shape(NGA_STH_joined) + tm_dots() +
-  tm_compass(position = c("right", "bottom")) +
-  tm_layout(frame = FALSE, legend.title.size = 0.5, legend.text.size = 0.5, legend.position = c("right", "bottom"))
