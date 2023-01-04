@@ -30,7 +30,7 @@ Datatypelist <- STH%>%
 Datatypelist
 
 
-#Check the CRS for the Africa polygons
+# Check the CRS for the Africa polygons
 st_geometry(Africa)
 st_crs(Africa)$proj4string
 
@@ -61,8 +61,8 @@ Nga_reg <- Regions %>%
   filter(str_detect(adm0_name, "Nigeria"))
 
 # Stage 1: Broad picture of the general STH percentage in Africa
-#to obtain the count of STH postive in each country
-# since there are some missing values that reads as '999999', they have to be omitted.
+# To obtain the count of STH postive in each country
+# Since there are some missing values that reads as '999999', they have to be omitted.
 STH_cleaned <- STH%>%
   filter(sth_positive < '99999')
 
@@ -84,7 +84,7 @@ STH_iso3 <- distinct(STH_iso3)
 STH_examined_count <- merge(STH_count, STH_Examined, by='country')
 STH_examined_count <- merge(STH_examined_count, STH_iso3, by='country')
 
-#obtain the percentage of positive STH diagnosis in each country
+# Obtain the percentage of positive STH diagnosis in each country
 STH_percent <- STH_examined_count%>%
   mutate(percent= sth_positive/sth_examined)
 
@@ -94,27 +94,28 @@ Africa_proj_sim <- Africa_proj_sim%>%
 # Merge the Africa map with the STH points data and allow all row to be kept
 Africa_STHpercentage <-merge(Africa_proj_sim, STH_percent, by='country', all=T)
 
-#sort the country according to the STH percentage values
+# Sort the country according to the STH percentage values
 Africa_STH_D_order <- Africa_STHpercentage[order(-Africa_STHpercentage$percent),]
 Africa_STH_D_order
 # Ignore the warning message, the empty units are purposely added to allow the legend to show that some countries have missing data
 Africa_STH_D_order <- Africa_STHpercentage[order(-Africa_STHpercentage$percent),]
-#map the STH prevalence in Africa based on the data collected
+# Map the STH prevalence in Africa based on the data collected
 tm_shape(Africa_proj_sim) + 
   tm_polygons() + 
   tm_shape(Africa_proj_sim) +
   tm_borders() +
   tm_shape(Africa_STH_D_order) +
   tm_fill(col= 'percent') +
+  tm_shape(Africa_proj) + tm_text("adm0_name", size = 0.5) +
   tm_style("white") +
-  tm_layout( "STH Prevalence across Africa (%)", title.size = 0.7, title.position= c('center','bottom')) +
-  tm_scale_bar(position = c("left", "bottom"), width = 0.15, size = 0.5) +
-  tm_compass(position = c("left", "top"), size = 2) 
+  tm_layout( "STH Prevalence across Africa (%)", title.size = 1, title.position= c('center','bottom')) +
+  tm_scale_bar(position = c("right", "bottom"), width = 0.15, size = 0.5) +
+  tm_compass(position = c("left", "top"), size = 1) 
 
 
 
-#This map only shows the overview of the Whole African continent using mean values, it does not show accurate results of each country
-#Before moving on to focus on Nigeria, the following analysis will use the health district for performing geostatistical modelling
+# This map only shows the overview of the Whole African continent using mean values, it does not show accurate results of each country
+# Before moving on to focus on Nigeria, the following analysis will use the health district for performing geostatistical modelling
 st_crs(Health_district)$proj4string
 Health_district <- Health_district %>%
   st_set_crs(., 4326)
@@ -124,17 +125,17 @@ Health_district_proj <- Health_district %>%
 
 summary(Health_district_proj)
 
-# filter out only Southern Africa's health district boundaries
+# Filter out only Southern Africa's health district boundaries
 Health_district_proj <- Health_district_proj%>%
   janitor::clean_names()
 
 NGA_healthdistrict <- Health_district_proj%>%
   filter(str_detect(admin0, "Nigeria"))
 
-#inspect
+# Inspect
 tm_shape(NGA_healthdistrict) + tm_borders()
 
-#select out the points of STH in South Africa
+# Select out the points of STH in South Africa
 NGA_STH <- STH_cleaned%>%
   filter(str_detect(country, "Nigeria"))
 
@@ -148,9 +149,9 @@ tm_shape(NGA_healthdistrict) +
   tm_shape(NGA_STH_pts) +
   tm_dots(col = 'blue')
 
-#spatial subset the points with Nigeria's borders
+# Spatial subset the points with Nigeria's borders
 NGA_STH_sub <- NGA_STH_pts[NGA_healthdistrict, ]
-#inspect
+# Inspect
 tm_shape(NGA_healthdistrict) + tm_polygons(alpha = 0, border.col = "black") + 
   tm_shape(NGA_STH_sub) + tm_dots(col = 'blue') + 
   tm_scale_bar(position = c("right","bottom")) +
@@ -166,19 +167,17 @@ NGA_STH_sub <- NGA_STH_sub%>%
   mutate(perc_to_100 = percentage*100)
 
 
-#inspect
+# Inspect
 tm_shape(NGA_STH_joined) + 
-  tm_polygons(col='percentage', palette='Greens') + 
+  tm_polygons(col='percentage', palette='Greens', border.col = NULL) + 
   tm_scale_bar(position = c("right","bottom")) +
-  tm_shape(Nga_reg) + tm_borders("grey50",lwd = 0.3) +
+  tm_shape(Nga_reg) + tm_borders("grey25",lwd = 0.8) +
   tm_shape(Nga_reg) +
   tm_text("adm1_name", size = "AREA") +
-  tm_compass(position = c("left", "top")) +
-  tm_layout("STH percentage in Nigeria", title.size = 0.8, title.position = c('center','top'))
+  tm_compass(position = c("left", "top"), size = 0.8) +
+  tm_layout("STH percentage in Nigeria", title.size = 0.8, title.position = c('center','top'),  legend.title.size = 0.8)
 
 # The points are not where STH is detected, but locations to test the prevalence of STH
-## moran's I 
-
 ngasoil <- st_read("Nigeria_soils_data/Legacy_soils_and_National_surveys.shp")
 st_crs(ngasoil)$proj4string
 
@@ -188,31 +187,86 @@ ngasoil <- ngasoil %>%
 
 ngasoilsub <- ngasoil[NGA_healthdistrict, ]
 
-nga_soil_joined <- st_join(NGA_healthdistrict, ngasoilsub)
+nga_soil_sth_joined <- st_join(NGA_STH_joined, ngasoilsub)
 
-#inspect points with map
+# Inspect points with map
 tm_shape(NGA_healthdistrict) + tm_polygons(alpha = 0, border.col = "black") + 
   tm_shape(ngasoilsub) + tm_dots(col = 'blue') + 
   tm_scale_bar(position = c("right","bottom")) +
-  tm_compass(position = c("left", "top"))
+  tm_compass(position = c("left", "top")) 
 
-# map the pH after joining
-tm_shape(nga_soil_joined) + 
-  tm_fill(col='pH', palette='Greens') +
-  tm_shape(Nga_reg) + tm_borders("grey50",lwd = 0.3) +
+# Map the percentage after joining to check if the join was correct
+plot1 <- tm_shape(nga_soil_sth_joined) + 
+  tm_polygons(col='percentage', palette='Greens', border.col = NULL) + 
+  tm_scale_bar(position = c("right","bottom")) +
+  tm_shape(Nga_reg) + tm_borders("grey25",lwd = 0.8) +
   tm_shape(Nga_reg) +
   tm_text("adm1_name", size = "AREA") +
-  tm_scale_bar(position = c("right","bottom")) +
-  tm_compass(position = c("left", "top")) +
-  tm_layout("Soil pH in Nigeria", title.size = 0.8, title.position = c('center','top'))
+  tm_compass(position = c("left", "top"), size = 0.8) +
+  tm_layout("STH percentage in Nigeria", title.size = 1, title.position = c('center','top'),  legend.title.size = 0.8, legend.outside.size = 0.3)
 
 
-tm_shape(nga_soil_joined) + 
-  tm_fill(col='OC', palette='Greens') +
-  tm_shape(Nga_reg) + tm_borders("grey50",lwd = 0.3) +
-  tm_scale_bar(position = c("right","bottom")) +
-tm_shape(Nga_reg) +
+# Map the pH after joining
+plot2 <- tm_shape(nga_soil_sth_joined) + 
+  tm_fill(col='pH', palette='Greens') +
+  tm_shape(Nga_reg) + tm_borders("grey25",lwd = 0.8) +
+  tm_shape(Nga_reg) + 
   tm_text("adm1_name", size = "AREA") +
-  tm_compass(position = c("left", "top")) +
-  tm_layout("Soil Organic Carbon in Nigeria", title.size = 0.8, title.position = c('center','top'))
+  tm_scale_bar(position = c("right","bottom"), ) +
+  tm_compass(position = c("left", "top"), size = 0.8) +
+  tm_layout("Soil pH level in Nigeria", title.size = 1, title.position = c('center','top'), legend.title.size = 0.8, legend.outside.size = 0.3)
+  
+# Map the OC after joining
+plot3 <- tm_shape(nga_soil_sth_joined) + 
+  tm_fill(col='OC', palette='Greens') +
+  tm_shape(Nga_reg) + tm_borders("grey25",lwd = 0.8) +
+  tm_scale_bar(position = c("right","bottom")) +
+  tm_shape(Nga_reg) +
+  tm_text("adm1_name", size = "AREA") +
+  tm_compass(position = c("left", "top"), size = 0.8) +
+  tm_layout("Soil Organic Carbon level in Nigeria", title.size = 1, title.position = c('center','top'), legend.title.size = 0.8, legend.outside.size = 0.3)
 
+# Map the P after joining
+plot4 <- tm_shape(nga_soil_sth_joined) + 
+  tm_fill(col='P', palette='Greens') +
+  tm_shape(Nga_reg) + tm_borders("grey25",lwd = 0.8) +
+  tm_scale_bar(position = c("right","bottom")) +
+  tm_shape(Nga_reg) +
+  tm_text("adm1_name", size = "AREA") +
+  tm_compass(position = c("left", "top"), size = 0.8) +
+  tm_layout("Soil Phosphorus level in Nigeria", title.size = 1, title.position = c('center', 'top'), legend.title.size = 0.8, legend.outside.size = 0.3)
+
+
+tmap_arrange(plot1, plot2, plot3, plot4, nrow = 2)
+
+# Stage 2 Fit non-spatial linear regression
+# response variable: STH percentage
+# predictors: Soil pH and soil organic carbon and phosphorus
+# residuals should exhibit normal distribution(random) --> if not, spatial factor might need to be considered
+# since all plots have different scale, it is better to vstandardise them with log() to make them comparable
+
+# the na values in the dataframe is not able to run in lm(), so the dataframe has to be cleaned
+nga_soil_sth_cleaned <-nga_soil_sth_joined %>%
+  dplyr::select(admin1, admin2, sth_examined, sth_positive, percentage, pH, OC, P, geometry)
+
+nga_soil_sth_cleaned <- nga_soil_sth_cleaned %>%
+  dplyr::filter(percentage !=0)
+
+nga_soil_sth_cleaned <- nga_soil_sth_cleaned %>%
+  dplyr::filter(pH !=0)
+
+nga_soil_sth_cleaned <- nga_soil_sth_cleaned %>%
+  dplyr::filter(P !=0)
+
+nga_soil_sth_cleaned <- nga_soil_sth_cleaned %>%
+  dplyr::filter(OC !=0)
+
+nga_soil_sth_cleaned$percentage <- round(nga_soil_sth_cleaned$percentage ,digit=5)
+
+# Non-spatial linear regression
+modelMLR <- lm(log10(percentage) ~ log10(pH) + log10(OC) + log10(P), data = nga_soil_sth_cleaned)
+options(scipen = 7)
+summary(modelMLR)
+
+
+  
