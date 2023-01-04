@@ -16,6 +16,7 @@ library(rmapshaper)
 # Read in data
 Africa <- st_read("Africa_SCH_STH_shapefile/Countries.shp")
 Health_district<- st_read("Africa_SCH_STH_shapefile/Health_Districts.shp")
+Regions <- st_read("Africa_SCH_STH_shapefile/Regional.shp")
 STH <- read_xlsx("SoilTransmittedHelminths_dataset28052017.xlsx",
                  guess_max = min(8300, n_max= 17388))
 
@@ -49,6 +50,15 @@ Africa_proj_sim <- Africa_proj%>%
   dplyr::select(adm0_name, geometry)
 
 plot(Africa_proj_sim)
+
+# Regional borders
+Regions <- Regions %>%
+  st_set_crs(., 4326)%>%
+  st_transform(., 3857)
+
+Nga_reg <- Regions %>%
+  janitor::clean_names()%>%
+  filter(str_detect(adm0_name, "Nigeria"))
 
 # Stage 1: Broad picture of the general STH percentage in Africa
 #to obtain the count of STH postive in each country
@@ -155,10 +165,14 @@ NGA_STH_sub <- NGA_STH_sub%>%
   mutate(percentage = sth_positive/sth_examined)%>%
   mutate(perc_to_100 = percentage*100)
 
+
 #inspect
 tm_shape(NGA_STH_joined) + 
-  tm_polygons(col='percentage', palette='Greens') +
+  tm_polygons(col='percentage', palette='Greens') + 
   tm_scale_bar(position = c("right","bottom")) +
+  tm_shape(Nga_reg) + tm_borders("grey50",lwd = 0.3) +
+  tm_shape(Nga_reg) +
+  tm_text("adm1_name", size = "AREA") +
   tm_compass(position = c("left", "top")) +
   tm_layout("STH percentage in Nigeria", title.size = 0.8, title.position = c('center','top'))
 
@@ -185,9 +199,20 @@ tm_shape(NGA_healthdistrict) + tm_polygons(alpha = 0, border.col = "black") +
 # map the pH after joining
 tm_shape(nga_soil_joined) + 
   tm_fill(col='pH', palette='Greens') +
+  tm_shape(Nga_reg) + tm_borders("grey50",lwd = 0.3) +
+  tm_shape(Nga_reg) +
+  tm_text("adm1_name", size = "AREA") +
   tm_scale_bar(position = c("right","bottom")) +
   tm_compass(position = c("left", "top")) +
   tm_layout("Soil pH in Nigeria", title.size = 0.8, title.position = c('center','top'))
 
 
+tm_shape(nga_soil_joined) + 
+  tm_fill(col='OC', palette='Greens') +
+  tm_shape(Nga_reg) + tm_borders("grey50",lwd = 0.3) +
+  tm_scale_bar(position = c("right","bottom")) +
+tm_shape(Nga_reg) +
+  tm_text("adm1_name", size = "AREA") +
+  tm_compass(position = c("left", "top")) +
+  tm_layout("Soil Organic Carbon in Nigeria", title.size = 0.8, title.position = c('center','top'))
 
