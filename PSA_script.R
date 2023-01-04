@@ -18,7 +18,8 @@ Africa <- st_read("Africa_SCH_STH_shapefile/Countries.shp")
 Health_district<- st_read("Africa_SCH_STH_shapefile/Health_Districts.shp")
 Regions <- st_read("Africa_SCH_STH_shapefile/Regional.shp")
 STH <- read_xlsx("SoilTransmittedHelminths_dataset28052017.xlsx",
-                 guess_max = min(8300, n_max= 17388))
+                 guess_max = min(8300, n_max= 17388),
+                 na = " ")
 
 
 # Check if the data is read in right with correct data types
@@ -249,6 +250,7 @@ tmap_arrange(plot1, plot2, plot3, plot4, nrow = 2)
 nga_soil_sth_cleaned <-nga_soil_sth_joined %>%
   dplyr::select(admin1, admin2, sth_examined, sth_positive, percentage, pH, OC, P, geometry)
 
+
 nga_soil_sth_cleaned <- nga_soil_sth_cleaned %>%
   dplyr::filter(percentage !=0)
 
@@ -261,12 +263,19 @@ nga_soil_sth_cleaned <- nga_soil_sth_cleaned %>%
 nga_soil_sth_cleaned <- nga_soil_sth_cleaned %>%
   dplyr::filter(OC !=0)
 
-nga_soil_sth_cleaned$percentage <- round(nga_soil_sth_cleaned$percentage ,digit=5)
-
 # Non-spatial linear regression
 modelMLR <- lm(log10(percentage) ~ log10(pH) + log10(OC) + log10(P), data = nga_soil_sth_cleaned)
 options(scipen = 7)
 summary(modelMLR)
 
+nga_soil_sth_cleaned$RESIDUALS <- modelMLR$residuals
 
-  
+
+# Reporting basic summary measures to have an idea of its distribution before plotting them on map
+summary(nga_soil_sth_cleaned$RESIDUALS)
+
+tm_shape(nga_soil_sth_cleaned) + tm_fill("RESIDUALS", style = "cont", midpoint = 0, palette = "-RdBu") +
+  tm_shape(NGA_STH_joined) + tm_polygons(alpha = 0, border.alpha = 1, border.col = "black") +
+  tm_compass(position = c("right", "top")) +
+  tm_scale_bar(position = c("left", "bottom")) +
+  tm_layout(frame = FALSE, legend.title.size = 0.5, legend.text.size = 0.5)  
