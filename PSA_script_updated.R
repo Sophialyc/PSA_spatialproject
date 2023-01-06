@@ -105,9 +105,9 @@ tm_shape(Africa_proj_sim) +
   tm_borders() +
   tm_shape(Africa_STH_D_order) +
   tm_fill(col= 'percent') +
-  tm_shape(Africa_proj) + tm_text("adm0_name", size = 0.5) +
+  tm_shape(Africa_proj) + tm_text("adm0_name", size = "AREA", along.lines = T) +
   tm_style("white") +
-  tm_layout( "STH Prevalence across Africa (%)", title.size = 1, title.position= c('center','bottom')) +
+  tm_layout( "STH Prevalence across Africa (%)", title.size = 1, title.position= c(0.3,'bottom')) +
   tm_scale_bar(position = c("right", "bottom"), width = 0.15, size = 0.5) +
   tm_compass(position = c("left", "top"), size = 1) 
 
@@ -165,6 +165,102 @@ tm_shape(NGA_STH_joined) +
   tm_compass(position = c("left", "top"), size = 0.8) +
   tm_layout("STH percentage in Nigeria", title.size = 0.8, title.position = c('center','top'),  legend.title.size = 0.8)
 
+# Making maps with both Africa and Nigeria
+library(ggplot2)
+NGA <- NGA_STH_joined %>%
+  ggplot() +
+  geom_sf(
+    aes(fill = percentage), 
+    lwd = 0,
+    colour = "white"
+  ) +
+  scale_fill_gradientn(
+    colors = c("#9DBF9E", "#FCB97D", "#A84268"),
+    na.value = "grey80",
+    oob = scales::squish,
+    labels = scales::percent,
+    name = "STH %"
+  )
+
+extent(NGA_STH_joined)
+
+mainmap <- Africa_STH_D_order %>%
+  ggplot() +
+  geom_sf(
+    aes(fill = percent), 
+    lwd = 0,
+    colour = "white"
+  ) +
+  scale_fill_gradientn(
+    colors = c("#9DBF9E", "#FCB97D", "#A84268"),
+    na.value = "grey80",
+    oob = scales::squish,
+    labels = scales::percent,
+    name = "STH%") +
+  theme_void() +
+  theme(
+    legend.justification = c(0, 1),
+    legend.position = c(0.9, .9)
+  ) 
+
+# Get the bounding box of the map
+extent(Africa_STH_D_order)
+
+mainmap +
+  coord_sf(
+    xlim = c(297048.4, 1634178),
+    ylim = c(475852.3, 1561830),
+    expand = FALSE
+  )
+
+library(cowplot)
+ggdraw(mainmap) +
+  draw_plot(
+    {
+      mainmap + 
+        coord_sf(
+          xlim = c(297048.4, 1634178),
+          ylim = c(475852.3, 1561830),
+          expand = FALSE) +
+        theme(legend.position = "none")
+    },
+    # The distance along a (0,1) x-axis to draw the left edge of the plot
+    x = 0.01, 
+    # The distance along a (0,1) y-axis to draw the bottom edge of the plot
+    y = 0,
+    # The width and height of the plot expressed as proportion of the entire ggdraw object
+    width = 0.46, 
+    height = 0.46)
+
+mainmap <- 
+  mainmap +
+  geom_rect(
+    xmin = 297048.4,
+    ymin = 475852.3,
+    xmax = 1634178,
+    ymax = 1561830,
+    fill = NA, 
+    colour = "black",
+    size = 0.6
+  )
+
+Map <- mainmap %>% 
+  ggdraw() +
+  draw_plot(
+    {
+      NGA + 
+        coord_sf(
+          xlim = c(297048.4, 1634178),
+          ylim = c(475852.3, 1561830),
+          expand = FALSE) +
+        theme(legend.position = "none")
+    },
+    x = 0.01, 
+    y = 0,
+    width = 0.46, 
+    height = 0.46)
+)
+
 # Make binary column for the STH presence and absence point data for suitability analysis in later terms
 NGA_STH_sub <- NGA_STH_sub%>%
   mutate(percentage = sth_positive/sth_examined)%>%
@@ -189,6 +285,7 @@ N <- raster("Worldsoilraster/nitrogen_0-5cm_mean_5000_3857.tif")
 # Crop the raster to Nigeria
 SOCcrop <- crop(SOC, extent(Nga_reg))
 SOC_NGA <- mask(SOCcrop, Nga_reg)
+
 plot(SOC_NGA)
 summary(SOC_NGA)
 SOC_NGA
