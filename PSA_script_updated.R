@@ -167,27 +167,27 @@ tm_shape(NGA_STH_joined) +
 
 # Making maps with both Africa and Nigeria
 library(ggplot2)
-NGA <- NGA_STH_joined %>%
+AFA <- Africa_STH_D_order %>%
   ggplot() +
   geom_sf(
-    aes(fill = percentage), 
+    aes(fill = percent), 
     lwd = 0,
-    colour = "white"
+    colour = "white",
   ) +
   scale_fill_gradientn(
     colors = c("#9DBF9E", "#FCB97D", "#A84268"),
     na.value = "grey80",
     oob = scales::squish,
     labels = scales::percent,
-    name = "STH %"
-  )
+    name = "STH %" 
+  ) 
 
-extent(NGA_STH_joined)
-
-mainmap <- Africa_STH_D_order %>%
+#NGA
+mainmap <- NGA_STH_joined %>%
   ggplot() +
+  geom_sf(data = NGA_border) +
   geom_sf(
-    aes(fill = percent), 
+    aes(fill = percentage), 
     lwd = 0,
     colour = "white"
   ) +
@@ -200,24 +200,25 @@ mainmap <- Africa_STH_D_order %>%
   theme_void() +
   theme(
     legend.justification = c(0, 1),
-    legend.position = c(0.9, .9)
+    legend.position = c(0, .9)
   ) 
 
 # Get the bounding box of the map
-extent(Africa_STH_D_order)
+extent(NGA_STH_joined)
 
-mainmap +
+AFA +
   coord_sf(
     xlim = c(297048.4, 1634178),
     ylim = c(475852.3, 1561830),
     expand = FALSE
   )
 
+
 library(cowplot)
 ggdraw(mainmap) +
   draw_plot(
     {
-      mainmap + 
+      AFA + 
         coord_sf(
           xlim = c(297048.4, 1634178),
           ylim = c(475852.3, 1561830),
@@ -225,15 +226,15 @@ ggdraw(mainmap) +
         theme(legend.position = "none")
     },
     # The distance along a (0,1) x-axis to draw the left edge of the plot
-    x = 0.01, 
+    x = 0.5, 
     # The distance along a (0,1) y-axis to draw the bottom edge of the plot
     y = 0,
     # The width and height of the plot expressed as proportion of the entire ggdraw object
     width = 0.46, 
     height = 0.46)
 
-mainmap <- 
-  mainmap +
+AFA_rec <- 
+  AFA +
   geom_rect(
     xmin = 297048.4,
     ymin = 475852.3,
@@ -248,18 +249,17 @@ Map <- mainmap %>%
   ggdraw() +
   draw_plot(
     {
-      NGA + 
-        coord_sf(
-          xlim = c(297048.4, 1634178),
-          ylim = c(475852.3, 1561830),
-          expand = FALSE) +
+      AFA_rec + 
+        coord_sf() +
         theme(legend.position = "none")
     },
-    x = 0.01, 
+    x = 0.64, 
     y = 0,
-    width = 0.46, 
-    height = 0.46)
-)
+    width = 0.35, 
+    height = 0.35
+  )
+# Inspect
+Map
 
 # Make binary column for the STH presence and absence point data for suitability analysis in later terms
 NGA_STH_sub <- NGA_STH_sub%>%
