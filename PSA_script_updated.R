@@ -13,6 +13,7 @@ library(spdep)
 library(rJava)
 library(dismo)
 library(sp)
+library(here)
 
 # Load in data
 Africa <- st_read("Africa_SCH_STH_shapefile/Countries.shp")
@@ -157,7 +158,7 @@ NGA_STH_joined <- NGA_STH_joined%>%
 
 # Inspect
 tm_shape(NGA_STH_joined) + 
-  tm_polygons(col='percentage', palette='Greens', border.col = NULL) + 
+  tm_polygons(col='percentage', palette= "YlGn", border.col = NULL) + 
   tm_scale_bar(position = c("right","bottom")) +
   tm_shape(Nga_reg) + tm_borders("grey25",lwd = 0.8) +
   tm_shape(Nga_reg) +
@@ -258,7 +259,7 @@ Map <- mainmap %>%
     width = 0.35, 
     height = 0.35
   )
-# Inspect
+
 Map
 
 # Make binary column for the STH presence and absence point data for suitability analysis in later terms
@@ -310,6 +311,7 @@ tm_shape(SOC_NGA) + tm_raster(style = "cont", title = "Mean Soil Organic Carbon 
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
   tm_layout(frame = FALSE, legend.outside = TRUE)
 
+
 tm_shape(pH_NGA) + tm_raster(style = "cont", title = "Mean soil pH level", palette= "-Spectral") +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
   tm_layout(frame = FALSE, legend.outside = TRUE)
@@ -326,7 +328,7 @@ tm_shape(N_NGA) + tm_raster(style = "cont", title = "Mean Soil Nitrogen level", 
 # Visualising the Soil profile that could have correlation with STH occurrence
 m1 <- tm_shape(SOC_NGA) + tm_raster(style = "cont", title = "	g/kg", palette= "Oranges") +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
-  tm_layout(frame = FALSE, legend.position = c("right", "bottom"), title.position = c("left", "bottom"), title = "A")
+  tm_layout(frame = FALSE, legend.position = c("right", "bottom"), title.position = c("left", "bottom"), title = "SOC")
 
 m2 <- tm_shape(pH_NGA) + tm_raster(style = "cont", title = "pHx10", palette= "Blues") +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
@@ -347,7 +349,7 @@ Soil_stk <- stack(SOC_NGA, pH_NGA, WV_NGA, N_NGA)
 nlayers(Soil_stk)
 names(Soil_stk) <- c("Soil_Organic_Carbon", "pH", "Water_retention", "Nitrogen" )
 
-# Prepare background data for pseudo-background points as absence --> a set of control points
+# Prepare background data for pseudo-background points as absence (0) --> a set of control points
 set.seed(20000106)
 NGA_border_sp <- as(NGA_border, Class = "Spatial")
 Background_points <- spsample(NGA_border_sp, n=2*nrow(NGA_STH_sub), "random")
@@ -359,8 +361,8 @@ rgdal::new_proj_and_gdal()
 sf::sf_extSoftVersion()
 
 # Raster Extraction
-STH_points_soil <- extract(Soil_stk, NGA_STH_sub)
-Background_points_soil <- extract(Soil_stk, Background_points)
+STH_points_soil <- raster::extract(Soil_stk, NGA_STH_sub)
+Background_points_soil <- raster::extract(Soil_stk, Background_points)
 
 
 STH_points_soil <- data.frame(STH_points_soil, binary=1)
@@ -369,7 +371,7 @@ Background_points_soil <- data.frame(Background_points_soil,binary=0)
 head(STH_points_soil, n=5)
 head(Background_points_soil, n=5)
 
-# Cross validation before constructing the risk model: k-fold cross validation
+# Cross validation before constructing the STH risk model: k-fold cross validation
 set.seed(20000106)
 # using k-fold function to split data into 4 equal parts
 select <- kfold(STH_points_soil, 4)
@@ -384,8 +386,11 @@ select <- kfold(Background_points_soil, 4)
 Background_points_soil_test <- Background_points_soil[select==1,]
 Background_points_soil_train <- Background_points_soil[select!=1,]
 
+# Row bind bothe the training and testing datasets together
 training_data <- rbind(STH_points_soil_train, Background_points_soil_train)
 testing_data <- rbind(STH_points_soil_test, Background_points_soil_test)
+
+# Fit the niche model using the Maximum Entropy (MAXENT) algorithm,
 model_training <- maxent(x=training_data[,c(1:4)], p=training_data[,5], args=c("responsecurves"))
 plot(model_training, pch=19, xlab = "Percentage [%]", cex=1.2)
 response(model_training)
@@ -458,4 +463,4 @@ Mean_OptMAX<-mean(Opt_MAX)
 Mean_OptMAX
 # use Mean_OptMAX as threshold for mapping suitability
 
-#Note: that final results is AUC: 0.6290031 ; threshold: 0.6490391
+#final results is AUC: 0.6290031 ; threshold: 0.6490391
