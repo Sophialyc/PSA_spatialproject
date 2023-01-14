@@ -98,14 +98,24 @@ Africa_STHpercentage <-merge(Africa_proj_sim, STH_percent, by='country', all=T)
 
 # Sort the country according to the STH percentage values
 Africa_STH_D_order <- Africa_STHpercentage[order(-Africa_STHpercentage$percent),]
-Africa_STH_D_order
+Africa_STH_D_order <- Africa_STH_D_order %>% 
+  rename(
+    Percentage = percent,
+    ISO3 = iso3
+  )
+
+P <- ggplot(Africa_STH_D_order,aes(ISO3,Percentage,fill=Percentage))+geom_bar(stat="identity") +
+  scale_fill_gradient(low="yellow",high="red") +ggtitle("Average STH prevalence (%)") +
+  theme(plot.title = element_text(hjust = 0.5))
+P + theme(axis.title=element_text(size=10)) + theme(plot.title=element_text(size=12)) 
+
 # Ignore the warning message, the empty units are purposely added to allow the legend to show that some countries have missing data
 tm_shape(Africa_proj_sim) + 
   tm_polygons() + 
   tm_shape(Africa_proj_sim) +
   tm_borders() +
   tm_shape(Africa_STH_D_order) +
-  tm_fill(col= 'percent') +
+  tm_fill(col= 'Percentage') +
   tm_shape(Africa_proj) + tm_text("adm0_name", size = "AREA", along.lines = T) +
   tm_style("white") +
   tm_layout( "STH Prevalence across Africa (%)", title.size = 1, title.position= c(0.3,'bottom')) +
@@ -326,21 +336,21 @@ tm_shape(N_NGA) + tm_raster(style = "cont", title = "Mean Soil Nitrogen level", 
 
 
 # Visualising the Soil profile that could have correlation with STH occurrence
-m1 <- tm_shape(SOC_NGA) + tm_raster(style = "cont", title = "	g/kg", palette= "Oranges") +
+m1 <- tm_shape(SOC_NGA) + tm_raster(style = "cont", title = "g/kg", palette= "Oranges") +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
-  tm_layout(frame = FALSE, legend.position = c("right", "bottom"), title.position = c("left", "bottom"), title = "SOC")
+  tm_layout(frame = FALSE, legend.position = c(0.9, 0), title.position = c("left", "bottom"), title = "SOC")
 
 m2 <- tm_shape(pH_NGA) + tm_raster(style = "cont", title = "pHx10", palette= "Blues") +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
-  tm_layout(frame = FALSE, legend.position = c("right", "bottom"), title.position = c("left", "bottom"), title = "B")
+  tm_layout(frame = FALSE, legend.position = c(0.9, 0), title.position = c("left", "bottom"), title = "pH")
 
-m3 <- tm_shape(WV_NGA) + tm_raster(style = "cont", title = "g/100g", palette= "-Spectral") +
+m3 <- tm_shape(WV_NGA) + tm_raster(style = "cont", title = "g/100g", palette= "Reds") +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
-  tm_layout(frame = FALSE, legend.position = c("right", "bottom"), title.position = c("left", "bottom"), title = "C")
+  tm_layout(frame = FALSE, legend.position = c(0.9, 0), title.position = c("left", "bottom"), title = "WV")
 
-m4 <- tm_shape(N_NGA) + tm_raster(style = "cont", title = "	cg/kg", palette= "Greens") +
+m4 <- tm_shape(N_NGA) + tm_raster(style = "cont", title = "cg/kg", palette= "Greens") +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
-  tm_layout(frame = FALSE, legend.position = c("right", "bottom"), title.position = c("left", "bottom"), title = "D")
+  tm_layout(frame = FALSE, legend.position = c(0.9, 0), title.position = c("left", "bottom"), title = "N")
 
 tmap_arrange(m1, m2, m3, m4, nrow = 2)
 
@@ -385,7 +395,6 @@ set.seed(20000106)
 select <- kfold(Background_points_soil, 4)
 Background_points_soil_test <- Background_points_soil[select==1,]
 Background_points_soil_train <- Background_points_soil[select!=1,]
-
 # Row bind bothe the training and testing datasets together
 training_data <- rbind(STH_points_soil_train, Background_points_soil_train)
 testing_data <- rbind(STH_points_soil_test, Background_points_soil_test)
@@ -393,7 +402,7 @@ testing_data <- rbind(STH_points_soil_test, Background_points_soil_test)
 # Fit the niche model using the Maximum Entropy (MAXENT) algorithm,
 model_training <- maxent(x=training_data[,c(1:4)], p=training_data[,5], args=c("responsecurves"))
 plot(model_training, pch=19, xlab = "Percentage [%]", cex=1.2)
-response(model_training)
+dismo::response(model_training)
 cross_validation <- evaluate(p=testing_data[testing_data$binary==1,], a=testing_data[testing_data$binary==0,], model = model_training)
 cross_validation 
 plot(cross_validation, 'ROC', cex=1.2)
@@ -420,7 +429,6 @@ tm_shape(suitability_STHtransmission) + tm_raster(style = "cat", title = "Thresh
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
   tm_layout(frame = FALSE, legend.outside = TRUE)
 
-
 # 4 fold analysis
 # split plot panel into 4 segments for 4 AUC plots
 par(mfrow=c(2,2))
@@ -435,8 +443,8 @@ kfold_pres <- kfold(STH_points_soil, folds)
 kfold_back <- kfold(Background_points_soil, folds)
 
 set.seed(20000106)
-# adapting loop code from https://rpubs.com/mlibxmda/GEOG70922_Week5
-# takes a long time to run 4-fold
+
+# 4 fold loop
 for (i in 1:folds) {
   train <- STH_points_soil[kfold_pres!= i,]
   test <- STH_points_soil[kfold_pres == i,]
@@ -452,8 +460,9 @@ for (i in 1:folds) {
 aucMAX <- sapply( eMAX, function(x){slot(x, 'auc')} )
 # report 4 of the AUC
 aucMAX
-# find the mean of AUC (and it must be > 0.50)
+# mean of AUC 
 mean(aucMAX)
+# Larger than 0.5
 
 #Get maxTPR+TNR for the maxnet model
 Opt_MAX<-sapply( eMAX, function(x){ x@t[which.max(x@TPR + x@TNR)] } )
@@ -462,5 +471,15 @@ Opt_MAX
 Mean_OptMAX<-mean(Opt_MAX)
 Mean_OptMAX
 # use Mean_OptMAX as threshold for mapping suitability
+#final results is AUC: 0.605872 ; threshold:  0.6098427
 
-#final results is AUC: 0.6290031 ; threshold: 0.6490391
+create_classes_vector_4fold <- c(0, Mean_OptMAX, 0, Mean_OptMAX, 1, 1)
+
+create_clasess_matrix_4fold <- matrix(create_classes_vector_4fold, ncol = 3, byrow = TRUE)
+create_clasess_matrix_4fold
+
+suitability_STHtransmission_4fold <- reclassify(prob_STHtransmission, create_clasess_matrix_4fold)
+
+tm_shape(suitability_STHtransmission_4fold) + tm_raster(style = "cat", title = "Threshold", palette= c("lightgrey", "red"), labels = c("Safe", "Trigger Points")) +
+  tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
+  tm_layout(frame = FALSE, legend.outside = TRUE)
