@@ -280,7 +280,7 @@ NGA_STH_sub <- NGA_STH_sub%>%
 NGA_STH_sub$binary <- NA 
 NGA_STH_sub$binary[NGA_STH_sub$percentage == 0] <- 0
 NGA_STH_sub$binary[NGA_STH_sub$percentage != 0] <- 1 
-NGA_STH_sub <- NGA_STH_sub[!is.na(NGA_STH_joined$binary),]
+NGA_STH_sub <- NGA_STH_sub[!is.na(NGA_STH_sub$binary),]
 
 summary(NGA_STH_sub)
 # Check if the binary column is cleaned
@@ -383,7 +383,7 @@ head(Background_points_soil, n=5)
 
 # Cross validation before constructing the STH risk model: k-fold cross validation
 set.seed(20000106)
-# using k-fold function to split data into 4 equal parts
+# Using k-fold function to split data into 4 equal parts
 select <- kfold(STH_points_soil, 4)
 # 25% of the fire data use for testing the model
 STH_points_soil_test <- STH_points_soil[select==1,]
@@ -477,9 +477,10 @@ Opt_MAX
 
 Mean_OptMAX<-mean(Opt_MAX)
 Mean_OptMAX
-# use Mean_OptMAX as threshold for mapping suitability
-#final results is AUC: 0.6177953 ; threshold:  0.6150243
+# u=Use Mean_OptMAX as threshold for mapping suitability
+# Final results is AUC: 0.6177953 ; threshold:  0.6150243
 
+# Map the suitbility map with the mean OPtMAX
 create_classes_vector_4fold <- c(0, Mean_OptMAX, 0, Mean_OptMAX, 1, 1)
 
 create_clasess_matrix_4fold <- matrix(create_classes_vector_4fold, ncol = 3, byrow = TRUE)
