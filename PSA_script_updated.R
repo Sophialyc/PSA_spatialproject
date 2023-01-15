@@ -107,7 +107,7 @@ Africa_STH_D_order <- Africa_STH_D_order %>%
 P <- ggplot(Africa_STH_D_order,aes(ISO3,Percentage,fill=Percentage))+geom_bar(stat="identity") +
   scale_fill_gradient(low="yellow",high="red") +ggtitle("Average STH prevalence (%)") +
   theme(plot.title = element_text(hjust = 0.5))
-P + theme(axis.title=element_text(size=10)) + theme(plot.title=element_text(size=12)) 
+P + theme(axis.title=element_text(size=12)) + theme(plot.title=element_text(size=18)) 
 
 # Ignore the warning message, the empty units are purposely added to allow the legend to show that some countries have missing data
 tm_shape(Africa_proj_sim) + 
@@ -181,7 +181,7 @@ library(ggplot2)
 AFA <- Africa_STH_D_order %>%
   ggplot() +
   geom_sf(
-    aes(fill = percent), 
+    aes(fill = Percentage), 
     lwd = 0,
     colour = "white",
   ) +
@@ -364,7 +364,6 @@ set.seed(20000106)
 NGA_border_sp <- as(NGA_border, Class = "Spatial")
 Background_points <- spsample(NGA_border_sp, n=2*nrow(NGA_STH_sub), "random")
 
-
 # Checking the warning message
 rgdal::rgdal_extSoftVersion()
 rgdal::new_proj_and_gdal()
@@ -375,6 +374,7 @@ STH_points_soil <- raster::extract(Soil_stk, NGA_STH_sub)
 Background_points_soil <- raster::extract(Soil_stk, Background_points)
 
 
+# Separate the 1s and 0s
 STH_points_soil <- data.frame(STH_points_soil, binary=1)
 Background_points_soil <- data.frame(Background_points_soil,binary=0)
 
@@ -398,6 +398,10 @@ Background_points_soil_train <- Background_points_soil[select!=1,]
 # Row bind bothe the training and testing datasets together
 training_data <- rbind(STH_points_soil_train, Background_points_soil_train)
 testing_data <- rbind(STH_points_soil_test, Background_points_soil_test)
+
+# Fit the Logistic regression model
+logistic_model_1 <- glm(binary ~ ., family = binomial(), training_data)
+summary(logistic_model_1)
 
 # Fit the niche model using the Maximum Entropy (MAXENT) algorithm,
 model_training <- maxent(x=training_data[,c(1:4)], p=training_data[,5], args=c("responsecurves"))
@@ -483,3 +487,4 @@ suitability_STHtransmission_4fold <- reclassify(prob_STHtransmission, create_cla
 tm_shape(suitability_STHtransmission_4fold) + tm_raster(style = "cat", title = "Threshold", palette= c("lightgrey", "red"), labels = c("Safe", "Trigger Points")) +
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
   tm_layout(frame = FALSE, legend.outside = TRUE)
+
