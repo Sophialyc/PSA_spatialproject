@@ -402,6 +402,9 @@ testing_data <- rbind(STH_points_soil_test, Background_points_soil_test)
 # Fit the Logistic regression model
 logistic_model_1 <- glm(binary ~ ., family = binomial(), training_data)
 summary(logistic_model_1)
+summary(logistic_model_1)$coef
+library("pscl")
+pscl::pR2(logistic_model_1)["McFadden"]
 
 # Fit the niche model using the Maximum Entropy (MAXENT) algorithm,
 model_training <- maxent(x=training_data[,c(1:4)], p=training_data[,5], args=c("responsecurves"))
@@ -413,7 +416,7 @@ plot(cross_validation, 'ROC', cex=1.2)
 prob_STHtransmission <- predict(model_training, Soil_stk)
 
 tm_shape(prob_STHtransmission) +
-  tm_raster(title = "Predicted probability", palette = '-RdYlBu', style ='cont', breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0))+
+  tm_raster(title = "Predicted probability of STH transmission", palette = '-RdYlBu', style ='cont', breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0))+
   tm_shape(Nga_reg) + tm_polygons(alpha = 0, border.col = "black") +
   tm_layout(main.title = "Predicted Probability of STH transmission [%]", main.title.position = c(0.2, 0.7), title.size=3, legend.text.size = 1.1, 
             legend.position = c(0.85, 0), legend.height= -0.3, legend.title.size = 1.1, frame='white')+
@@ -466,7 +469,7 @@ aucMAX <- sapply( eMAX, function(x){slot(x, 'auc')} )
 aucMAX
 # mean of AUC 
 mean(aucMAX)
-# Larger than 0.5
+# Larger than 0.5:  0.6177953
 
 #Get maxTPR+TNR for the maxnet model
 Opt_MAX<-sapply( eMAX, function(x){ x@t[which.max(x@TPR + x@TNR)] } )
@@ -475,7 +478,7 @@ Opt_MAX
 Mean_OptMAX<-mean(Opt_MAX)
 Mean_OptMAX
 # use Mean_OptMAX as threshold for mapping suitability
-#final results is AUC: 0.605872 ; threshold:  0.6098427
+#final results is AUC: 0.6177953 ; threshold:  0.6150243
 
 create_classes_vector_4fold <- c(0, Mean_OptMAX, 0, Mean_OptMAX, 1, 1)
 
